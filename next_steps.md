@@ -1,3 +1,5 @@
+gotcha — “不知所措” in English is “at a loss,” “unsure what to do next,” or “overwhelmed and not sure how to proceed.”
+
 Here’s a clean map of what we can do from where you are (FastAPI chat working + Firestore storage), what each step achieves, how “temporary vs. long-term” it is, and how close it gets you to a real, usable AI companion.
 
 # Snapshot (where you are)
@@ -134,27 +136,3 @@ Pick one of these paths based on your goal this week:
 If you want my single best recommendation right now: **Path A** (Memory Peek) first. It’s the highest learning-per-minute step, and it de-mystifies behavior so the next choices (auth vs deploy vs memory policy) are easier and safer.
 
 Tell me which path you want to take next, and I’ll share the exact (short) implementation steps for that path only.
-
-
-
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBBUMq0dkypdT4fuqNlyhrDVUYrs5y_LwI",
-  authDomain: "gen-lang-client-0574433212.firebaseapp.com",
-  projectId: "gen-lang-client-0574433212",
-  storageBucket: "gen-lang-client-0574433212.firebasestorage.app",
-  messagingSenderId: "420724880490",
-  appId: "1:420724880490:web:7985632eea355b2c2a0613",
-  measurementId: "G-3YHP0X101T"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
