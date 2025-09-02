@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { ensureAnonUser, getAuthHeader } from "./firebase";
+import { getMessages } from "./api";
 
-
-export default function RecentMessages({ baseUrl = "http://localhost:8000" }) {
+export default function RecentMessages() {
   const [items, setItems] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -11,41 +10,42 @@ export default function RecentMessages({ baseUrl = "http://localhost:8000" }) {
     setRefreshing(true);
     setError("");
     try {
-      // Ensure authentication is ready before making API calls
-      await ensureAnonUser();
-      const headers = await getAuthHeader();
-      const resp = await fetch(`${baseUrl}/api/messages?limit=12`, { headers });
-        
-      const data = await resp.json();
-      if (!data?.ok) throw new Error("Request failed");
-      setItems(data.items || []);
+      const messages = await getMessages(12);
+      setItems(messages || []);
     } catch (e) {
       setError(String(e));
     } finally {
       setRefreshing(false);
     }
-  }, [baseUrl]);
+  }, []);
 
   useEffect(() => { 
     load(); 
   }, [load]);
 
   return (
-    <div className="border rounded p-3 bg-white">
-      <div className="flex items-center justify-between mb-2">
-        <b>Recent (server)</b>
-        <button className="text-sm underline" onClick={load} disabled={refreshing}>
+    <div className="recent-messages-panel">
+      <div className="recent-messages-header">
+        <h3>💬 Recent Messages</h3>
+        <button 
+          className="refresh-button" 
+          onClick={load} 
+          disabled={refreshing}
+        >
           {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
-      {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
-      <div className="space-y-1 text-sm">
+      {error && <div className="error-message">{error}</div>}
+      <div className="messages-list">
         {items.map((m, i) => (
-          <div key={i}>
-            <b>{m.role === "user" ? "You" : "Bot"}:</b> {m.content}
+          <div key={i} className={`message-item ${m.role}`}>
+            <div className="message-role">
+              {m.role === "user" ? "You" : "Talky Dino"}
+            </div>
+            <div className="message-content">{m.content}</div>
           </div>
         ))}
-        {!items.length && <div className="opacity-60">No messages yet.</div>}
+        {!items.length && <div className="no-data">No messages yet.</div>}
       </div>
     </div>
   );

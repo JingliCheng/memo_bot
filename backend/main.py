@@ -60,7 +60,11 @@ else:
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("WEB_ORIGIN", "http://localhost:5173")],
+    allow_origins=[
+        os.getenv("WEB_ORIGIN", "http://localhost:5173"),
+        "https://talkydino-ui.vercel.app/",
+        "https://memo-bot-ui.vercel.app/"
+        ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
