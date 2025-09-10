@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import './index.css';
 import { signInAnonymouslyUser, onAuthStateChange } from './firebase.js';
 import { sendChatMessage, getMessagesWithCache, getCurrentUser } from './api.js';
@@ -6,7 +6,6 @@ import MemoryPeek from './MemoryPeek.jsx';
 import RecentMessages from './RecentMessages.jsx';
 import ProfileCard from './ProfileCard.jsx';
 import DebugToggle from './DebugToggle.jsx';
-import ChromaInspection from './ChromaInspection.jsx';
 
 // SVG Icons as React components
 
@@ -100,30 +99,6 @@ const DebugIcon = () => (
   </svg>
 );
 
-const ChromaIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-    <path d="M9 9h6v6H9z" />
-    <path d="M9 1v6" />
-    <path d="M15 1v6" />
-    <path d="M9 17v6" />
-    <path d="M15 17v6" />
-    <path d="M1 9h6" />
-    <path d="M17 9h6" />
-    <path d="M1 15h6" />
-    <path d="M17 15h6" />
-  </svg>
-);
-
 const SendIcon = () => (
   <svg
     width="20"
@@ -162,18 +137,7 @@ function App() {
   const [showRecentMessages, setShowRecentMessages] = useState(false);
   const [showProfileCard, setShowProfileCard] = useState(false);
   const [showDebugToggle, setShowDebugToggle] = useState(false);
-  const [showChromaInspection, setShowChromaInspection] = useState(false);
   const [rawOutput, setRawOutput] = useState('');
-  
-  // Ref for the messages container to enable auto-scrolling
-  const messagesEndRef = useRef(null);
-
-  /**
-   * Scrolls to the bottom of the messages container
-   */
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   /**
    * Initialize authentication and load previous messages
@@ -252,13 +216,26 @@ function App() {
   }, []);
 
   /**
-   * Auto-scroll to bottom when messages change (initial load and new messages)
+   * Filters out PROFILE_UPDATES section from AI responses
+   * @param {string} content - The content to filter
+   * @returns {string} - Filtered content without PROFILE_UPDATES section
    */
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // No frontend filtering - for debugging purposes
+  const filterProfileUpdates = (content) => {
+    if (!content) return content;
+    
+    // Try different variations of the PROFILE_UPDATES marker
+    const markers = ['PROFILE_UPDATES:', 'PROFILE_UPDATES'];
+    
+    for (const marker of markers) {
+      if (content.includes(marker)) {
+        // Split at the marker and return only the part before it
+        const parts = content.split(marker);
+        return parts[0].trim();
+      }
+    }
+    
+    return content;
+  };
 
   /**
    * Handles search input changes
@@ -288,9 +265,6 @@ function App() {
       };
       setMessages(prev => [...prev, newUserMessage]);
       
-      // Scroll to bottom after adding user message
-      setTimeout(() => scrollToBottom(), 100);
-      
       // Create a placeholder bot message for streaming
       const botMessageId = Date.now() + 1;
       const initialBotMessage = {
@@ -310,7 +284,11 @@ function App() {
               msg.id === botMessageId 
                 ? { 
                     ...msg, 
-                    content: msg.content + chunk  // Append each chunk
+                    content: filterProfileUpdates(
+                      typeof chunk === 'object' && chunk.type === 'complete' 
+                        ? chunk.content  // Replace content for complete response
+                        : msg.content + chunk  // Append for regular chunks
+                    )
                   }
                 : msg
             ));
@@ -319,7 +297,7 @@ function App() {
           (fullResponse, rawOutput) => {
             setMessages(prev => prev.map(msg => 
               msg.id === botMessageId 
-                ? { ...msg, content: fullResponse }
+                ? { ...msg, content: filterProfileUpdates(fullResponse) }
                 : msg
             ));
             // Store raw output for debug toggle
@@ -389,14 +367,6 @@ function App() {
   const handleDebugToggle = () => {
     setShowDebugToggle(!showDebugToggle);
     console.log('DebugToggle toggled:', !showDebugToggle);
-  };
-
-  /**
-   * Handles ChromaInspection toggle
-   */
-  const handleChromaInspectionToggle = () => {
-    setShowChromaInspection(!showChromaInspection);
-    console.log('ChromaInspection toggled:', !showChromaInspection);
   };
 
   /**
@@ -477,13 +447,6 @@ function App() {
             <DebugIcon />
           </button>
           <button 
-            className={`icon-button toggle-button ${showChromaInspection ? 'active' : ''}`}
-            onClick={handleChromaInspectionToggle}
-            aria-label="Chroma DB Inspector"
-          >
-            <ChromaIcon />
-          </button>
-          <button 
             className="icon-button" 
             onClick={handleSettingsClick}
             aria-label="Settings"
@@ -495,7 +458,7 @@ function App() {
 
       {/* Main Content */}
       <main className="main-content fade-in">
-        <div className={`content-layout ${showMemoryPeek || showRecentMessages || showProfileCard || showDebugToggle || showChromaInspection ? 'with-sidebar' : 'centered'}`}>
+        <div className={`content-layout ${showMemoryPeek || showRecentMessages || showProfileCard || showDebugToggle ? 'with-sidebar' : 'centered'}`}>
           {/* Main Chat Area */}
           <div className="chat-main">
             {messages.length === 0 ? (
@@ -536,7 +499,6 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  <div ref={messagesEndRef} />
                 </div>
               </div>
             )}
@@ -579,7 +541,6 @@ function App() {
               rawOutput={rawOutput}
               onToggle={handleDebugToggle}
             />}
-            {showChromaInspection && <ChromaInspection />}
           </div>
       </div>
       </main>

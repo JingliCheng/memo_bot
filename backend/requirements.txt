@@ -12,3 +12,5 @@ python-dotenv
 firebase-admin
 google-auth
 openai
+google-cloud-monitoring
+chromadb

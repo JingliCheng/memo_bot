@@ -1,27 +1,47 @@
 import { useEffect, useState, useCallback } from "react";
-import { getMessages } from "./api";
+import { getMessagesWithCache } from "./api";
 
 export default function RecentMessages() {
   const [items, setItems] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(6);
 
-  const load = useCallback(async () => {
-    setRefreshing(true);
+  const load = useCallback(async (reset = true) => {
+    if (reset) {
+      setRefreshing(true);
+      setPage(0);
+    } else {
+      setLoadingMore(true);
+    }
     setError("");
+    
     try {
-      const messages = await getMessages(12);
-      setItems(messages || []);
+      const offset = reset ? 0 : page * pageSize;
+      const messages = await getMessagesWithCache(pageSize, offset);
+      
+      if (reset) {
+        setItems(messages || []);
+      } else {
+        setItems(prev => [...prev, ...(messages || [])]);
+      }
+      
+      setHasMore(messages && messages.length === pageSize);
+      setPage(prev => prev + 1);
     } catch (e) {
       setError(String(e));
     } finally {
       setRefreshing(false);
+      setLoadingMore(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => { 
-    load(); 
-  }, [load]);
+    load(true); 
+  }, []);
 
   return (
     <div className="recent-messages-panel">
@@ -29,7 +49,7 @@ export default function RecentMessages() {
         <h3>💬 Recent Messages</h3>
         <button 
           className="refresh-button" 
-          onClick={load} 
+          onClick={() => load(true)} 
           disabled={refreshing}
         >
           {refreshing ? "Refreshing…" : "Refresh"}
@@ -46,6 +66,15 @@ export default function RecentMessages() {
           </div>
         ))}
         {!items.length && <div className="no-data">No messages yet.</div>}
+        {hasMore && (
+          <button 
+            className="load-more-button" 
+            onClick={() => load(false)}
+            disabled={loadingMore}
+          >
+            {loadingMore ? "Loading…" : "Load More"}
+          </button>
+        )}
       </div>
     </div>
   );

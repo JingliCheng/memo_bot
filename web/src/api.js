@@ -1,5 +1,6 @@
 // API service for communicating with the backend
 import { getIdToken } from './firebase.js';
+import cacheManager from './cacheManager.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -42,8 +43,9 @@ const apiRequest = async (endpoint, options = {}) => {
  * @param {Function} onChunk - Callback for each chunk of the response
  * @param {Function} onComplete - Callback when the response is complete
  * @param {Function} onError - Callback for errors
+ * @param {Function} onRawOutput - Callback for raw LLM output updates
  */
-export const sendChatMessage = async (message, onChunk, onComplete, onError) => {
+export const sendChatMessage = async (message, onChunk, onComplete, onError, onRawOutput) => {
   try {
     const token = await getIdToken();
     
@@ -63,6 +65,7 @@ export const sendChatMessage = async (message, onChunk, onComplete, onError) => 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullResponse = '';
+    let rawOutput = '';
 
     try {
       while (true) {
@@ -77,15 +80,38 @@ export const sendChatMessage = async (message, onChunk, onComplete, onError) => 
           if (line.startsWith('data:')) {
             const data = line.slice(5).trim();
             
-            if (data === '[DONE]') {
-              onComplete(fullResponse);
-              return;
-            }
-            
             try {
               const parsed = JSON.parse(data);
-              fullResponse += parsed;
-              onChunk(parsed);
+              
+              // Check if this is a completion marker
+              if (parsed.done) {
+                // Invalidate messages cache after new message
+                const userId = token ? 'authenticated' : 'anonymous';
+                cacheManager.invalidateUser('messages', userId);
+                
+                // Store final raw output
+                if (parsed.raw_output) {
+                  rawOutput = parsed.raw_output;
+                  onRawOutput(rawOutput);
+                }
+                
+                onComplete(fullResponse, rawOutput);
+                return;
+              }
+              
+              // Handle streaming chunks - now only content is sent
+              if (parsed.content) {
+                // Regular streaming chunk - just append to full response
+                fullResponse += parsed.content;
+                onChunk(parsed.content);
+              }
+              
+              // Handle raw output updates
+              if (parsed.raw_output && onRawOutput) {
+                rawOutput = parsed.raw_output;
+                onRawOutput(rawOutput);
+              }
+              
             } catch (e) {
               // Skip invalid JSON chunks
               console.warn('Invalid JSON chunk:', data);
@@ -105,12 +131,41 @@ export const sendChatMessage = async (message, onChunk, onComplete, onError) => 
 /**
  * Get user's memories
  * @param {number} limit - Maximum number of memories to retrieve
+ * @param {number} offset - Number of items to skip (for pagination)
  * @returns {Promise<Array>} Array of memory items
  */
-export const getMemories = async (limit = 12) => {
-  const response = await apiRequest(`/api/memory?limit=${limit}`);
+export const getMemories = async (limit = 12, offset = 0) => {
+  const response = await apiRequest(`/api/memory?limit=${limit}&offset=${offset}`);
   const data = await response.json();
   return data.items || [];
+};
+
+/**
+ * Get user's memories with caching
+ * @param {number} limit - Maximum number of memories to retrieve
+ * @param {number} offset - Number of items to skip (for pagination)
+ * @returns {Promise<Array>} Array of memory items
+ */
+export const getMemoriesWithCache = async (limit = 12, offset = 0) => {
+  const token = await getIdToken();
+  const userId = token ? 'authenticated' : 'anonymous';
+  const cacheKey = cacheManager.generateKey('memories', userId, `${limit}_${offset}`);
+  
+  // Try cache first
+  const cached = cacheManager.get(cacheKey);
+  if (cached) {
+    console.log(`Using cached memories (limit: ${limit}, offset: ${offset})`);
+    return cached;
+  }
+  
+  // Fetch fresh data
+  console.log(`Fetching fresh memories (limit: ${limit}, offset: ${offset})`);
+  const fresh = await getMemories(limit, offset);
+  
+  // Cache the result
+  cacheManager.set(cacheKey, fresh);
+  
+  return fresh;
 };
 
 /**
@@ -124,18 +179,53 @@ export const addMemory = async (memory) => {
     body: JSON.stringify(memory),
   });
   const data = await response.json();
+  
+  // Invalidate memories cache after adding new memory
+  const token = await getIdToken();
+  const userId = token ? 'authenticated' : 'anonymous';
+  cacheManager.invalidateUser('memories', userId);
+  
   return data.memory;
 };
 
 /**
  * Get user's message history
  * @param {number} limit - Maximum number of messages to retrieve
+ * @param {number} offset - Number of items to skip (for pagination)
  * @returns {Promise<Array>} Array of message items
  */
-export const getMessages = async (limit = 12) => {
-  const response = await apiRequest(`/api/messages?limit=${limit}`);
+export const getMessages = async (limit = 12, offset = 0) => {
+  const response = await apiRequest(`/api/messages?limit=${limit}&offset=${offset}`);
   const data = await response.json();
   return data.items || [];
+};
+
+/**
+ * Get user's message history with caching
+ * @param {number} limit - Maximum number of messages to retrieve
+ * @param {number} offset - Number of items to skip (for pagination)
+ * @returns {Promise<Array>} Array of message items
+ */
+export const getMessagesWithCache = async (limit = 12, offset = 0) => {
+  const token = await getIdToken();
+  const userId = token ? 'authenticated' : 'anonymous';
+  const cacheKey = cacheManager.generateKey('messages', userId, `${limit}_${offset}`);
+  
+  // Try cache first
+  const cached = cacheManager.get(cacheKey);
+  if (cached) {
+    console.log(`Using cached messages (limit: ${limit}, offset: ${offset})`);
+    return cached;
+  }
+  
+  // Fetch fresh data
+  console.log(`Fetching fresh messages (limit: ${limit}, offset: ${offset})`);
+  const fresh = await getMessages(limit, offset);
+  
+  // Cache the result
+  cacheManager.set(cacheKey, fresh);
+  
+  return fresh;
 };
 
 /**
@@ -153,5 +243,14 @@ export const getCurrentUser = async () => {
  */
 export const checkHealth = async () => {
   const response = await apiRequest('/health');
+  return await response.json();
+};
+
+/**
+ * Get Chroma DB data for inspection
+ * @returns {Promise<Object>} Chroma DB episodes and stats
+ */
+export const getChromaData = async () => {
+  const response = await apiRequest('/api/chroma/inspect');
   return await response.json();
 };

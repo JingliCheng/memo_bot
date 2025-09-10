@@ -67,13 +67,14 @@ def add_memory(uid: str, item: Dict[str, Any]) -> Dict[str, Any]:
     doc_ref.set(data)
     return data
 
-def get_top_facts(uid: str, limit: int = 6) -> list[dict]:
+def get_top_facts(uid: str, limit: int = 6, offset: int = 0) -> list[dict]:
     refs = _user_refs(uid)
     q = (
         refs["memories"]
         .where(filter=FieldFilter("type", "==", "semantic"))
         .order_by("score", direction=firestore.Query.DESCENDING)
         .limit(int(limit))
+        .offset(int(offset))
     )
     return [{**d.to_dict(), "id": d.id} for d in q.stream()]
 
@@ -84,8 +85,8 @@ def log_message(uid: str, role: str, content: str, ts: Optional[float] = None) -
     ref.set(doc)
     return ref.id
 
-def get_last_messages(uid: str, limit: int = 6) -> List[Dict[str, Any]]:
+def get_last_messages(uid: str, limit: int = 6, offset: int = 0) -> List[Dict[str, Any]]:
     refs = _user_refs(uid)
-    q = refs["messages"].order_by("ts", direction=firestore.Query.DESCENDING).limit(int(limit))
+    q = refs["messages"].order_by("ts", direction=firestore.Query.DESCENDING).limit(int(limit)).offset(int(offset))
     docs = [d.to_dict() for d in q.stream()]
     return list(reversed(docs))

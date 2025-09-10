@@ -11,13 +11,22 @@ from slowapi.errors import RateLimitExceeded
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 import redis
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Import monitoring
+from monitoring import metrics
 
 # Rate limit configuration per endpoint
 RATE_LIMITS = {
-    "/api/chat": "10/minute",      # Chat is most expensive (OpenAI calls)
-    "/api/memory": "30/minute",    # Memory operations are lighter
-    "/api/messages": "30/minute",  # Message retrieval is lightweight
-    "/whoami": "60/minute",        # Auth check is very lightweight
+    "/api/chat": "10/minute",           # Chat is most expensive (OpenAI calls)
+    "/api/memory": "30/minute",          # Memory operations are lighter
+    "/api/messages": "30/minute",        # Message retrieval is lightweight
+    "/api/profile-card": "20/minute",    # Profile Card operations
+    "/api/profile-card/history": "10/minute",  # Profile history is heavier
+    "/api/profile-card/stats": "20/minute",    # Profile stats
+    "/whoami": "60/minute",              # Auth check is very lightweight
 }
 
 # Default rate limit for unlisted endpoints
@@ -76,14 +85,28 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
     # Extract retry_after from the exception if available
     retry_after = getattr(exc, 'retry_after', None)
     
+    # Record rate limit metrics
+    uid = getattr(request.state, 'uid', 'unknown')
+    endpoint = request.url.path
+    
+    # Get remaining quota (this would need to be implemented based on your rate limiter)
+    remaining_quota = 0  # Placeholder
+    
+    metrics.record_rate_limit_metrics(
+        user_id=uid,
+        endpoint=endpoint,
+        rate_limit_hit=True,
+        remaining_quota=remaining_quota
+    )
+    
     response = JSONResponse(
         status_code=429,
         content={
             "error": "Rate limit exceeded",
             "message": f"Too many requests. Limit: {exc.detail}",
             "retry_after": retry_after,
-            "endpoint": request.url.path,
-            "uid": getattr(request.state, 'uid', 'unknown')
+            "endpoint": endpoint,
+            "uid": uid
         }
     )
     
