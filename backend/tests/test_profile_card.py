@@ -1,9 +1,12 @@
-# test_profile_card.py
 """
 Simple test script for Profile Card functionality.
 """
 import os
-import json
+import sys
+
+# Add backend directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from profile_card import (
     create_default_profile_card, 
     get_profile_card, 

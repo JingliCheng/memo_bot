@@ -8,7 +8,7 @@ import sys
 from dotenv import load_dotenv
 
 # Add backend directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 

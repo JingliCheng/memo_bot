@@ -1,26 +1,42 @@
-# llm_integration.py
 """
 LLM integration with streaming responses and automatic profile updates.
+
+This module handles:
+- OpenAI API integration with streaming
+- Function calling for profile updates
+- Context injection from profile cards and episodic memory
+- Background processing of profile updates
+- Conversation history management
 """
+
 from __future__ import annotations
 import os
 import json
 import asyncio
 import time
 from typing import Dict, Any, List, Optional, AsyncGenerator, Tuple
+
 from openai import OpenAI
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
-
-from profile_card import ProfileCard, get_profile_card, save_profile_card, update_profile_with_confidence, validate_updates, contains_new_information
+# Local imports
+from profile_card import (
+    ProfileCard, 
+    get_profile_card, 
+    save_profile_card, 
+    update_profile_with_confidence, 
+    validate_updates, 
+    contains_new_information
+)
 from monitoring import metrics
 from logging_config import log_request
 from firestore_store import log_message, get_last_messages
 from episodic_memory import store_conversation_round, search_user_episodes, get_user_recent_episodes
 
-# ---- Configuration ----
+load_dotenv(override=True)
+
+# Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano")
 
@@ -31,7 +47,7 @@ else:
     _client = None
     _use_openai = False
 
-# ---- LLM Prompt Templates ----
+# LLM prompt templates and context formatting
 def format_llm_messages(user_id: str, user_message: str, profile_card: ProfileCard) -> List[Dict[str, str]]:
     """Format messages for LLM using system and user roles with function calling."""
     
@@ -41,19 +57,34 @@ def format_llm_messages(user_id: str, user_message: str, profile_card: ProfileCa
     episode_context = get_episode_context(user_id, user_message)
     
     # System message contains instructions and context
-    system_content = f"""You are a friendly AI assistant that helps users while learning about them to provide personalized experiences. You respond naturally to user messages and can update their profile with new information you learn.
+    system_content = f"""You are **Roary**, a playful, curious dinosaur buddy for kids aged 6–10.  
+You love making friends, asking questions, and collecting “dino-snacks of knowledge.”  
+You are excitable, sometimes clumsy, but always encouraging and safe.  
+Your mission: be a fun companion that sparks curiosity and imagination, while also learning about the user to provide personalized experiences.  
 
 # Instructions
 
-* ALWAYS respond conversationally to the user's message first
-* After your response, if you learned NEW information about the user, use the profile_update function
-* Your response should be natural and engaging - don't just make function calls without responding
+* ALWAYS respond conversationally to the user’s message first, in Roary’s voice:
+  - Short, cheerful sentences (1–3 lines).
+  - Warm, silly, and encouraging tone.
+  - Sprinkle in catchphrases like:
+    - “Roaaary, that’s exciting!”  
+    - “Oops, I tripped over my tail again!”  
+    - “I’m so curious, tell me more!”  
+  - Give playful rewards like “You earned a shiny dino sticker!”  
+  - End many responses with a fun little question or choice.
+
+* AFTER your conversational response, if you learned NEW information about the user, call the `profile_update` function.
+
+* Your response must always include the conversational message first, then the function call if needed.  
+  Do not output function calls without speaking first.
+
 * Only include updates for NEW information that:
   1. Is explicitly stated by the user
   2. Is not already in the profile
   3. Is a fact about the user (not general knowledge)
 
-* Guidelines for profile updates:
+# Guidelines for profile updates:
   - demographics: name, age, gender, location
   - interests: primary_interests, secondary_interests
   - preferences: favorite_animals, favorite_foods, favorite_colors, favorite_activities
@@ -62,13 +93,19 @@ def format_llm_messages(user_id: str, user_message: str, profile_card: ProfileCa
   - context: recent_events, current_projects
   - communication: style, learning_level, attention_span, language_preference
 
+# Safety Boundaries
+- Never ask for private info (real name, address, etc.). Use nicknames if shared.
+- Avoid adult, violent, scary, or negative topics. Redirect gently to safe play.
+- Never promise real gifts or meetings.
+
 # Context
 
 <user_profile>
 {profile_context}
 </user_profile>
 
-{episode_context}"""
+{episode_context}
+"""
 
     # Get conversation history (past 6 rounds = 12 messages)
     conversation_history = get_last_messages(user_id, limit=12, offset=0)
@@ -156,7 +193,7 @@ def get_episode_context(user_id: str, user_message: str, max_episodes: int = 3) 
         return ""
 
 
-# ---- Function Definitions ----
+# Function definitions for OpenAI function calling
 def get_profile_update_function_definition() -> Dict[str, Any]:
     """Get the function definition for profile updates."""
     return {
@@ -204,7 +241,7 @@ def get_profile_update_function_definition() -> Dict[str, Any]:
     }
 
 
-# ---- Streaming LLM Response ----
+# Streaming LLM response handling
 async def stream_llm_response(messages: List[Dict[str, str]]):
     """Stream LLM response with function call handling. Returns (chunk, profile_updates, raw_output)."""
     
@@ -273,7 +310,7 @@ async def stream_llm_response(messages: List[Dict[str, str]]):
         print(f"Error in LLM streaming: {e}")
         yield (error_msg, '{"updates": []}', error_msg)
 
-# ---- Background Profile Update Handler ----
+# Background profile update processing
 async def handle_profile_updates_background(user_id: str, profile_updates: Dict[str, Any], profile_card: ProfileCard):
     """Handle profile updates in the background with robust validation and idempotent persistence."""
     
@@ -356,7 +393,7 @@ def log_profile_update(user_id: str, updates: List[Dict[str, Any]]):
                    confidence=update["confidence"],
                    reason=update["reason"])
 
-# ---- Main Chat Function ----
+# Main chat functionality
 async def chat_with_streaming_profile_update(user_id: str, user_message: str) -> StreamingResponse:
     """Chat endpoint that streams response and updates profile in background."""
     
@@ -485,7 +522,7 @@ async def chat_with_streaming_profile_update(user_id: str, user_message: str) ->
     
     return StreamingResponse(stream_response(), media_type="text/event-stream")
 
-# ---- Fallback Functions ----
+# Fallback functions
 async def simple_streaming_chat(user_id: str, user_message: str) -> StreamingResponse:
     """Fallback to simple streaming without profile updates."""
     
@@ -499,4 +536,5 @@ async def simple_streaming_chat(user_id: str, user_message: str) -> StreamingRes
     
     return StreamingResponse(fallback_stream(), media_type="text/event-stream")
 
+# Version information
 VERSION_TAG = "llm_integration v1.0 STREAMING"

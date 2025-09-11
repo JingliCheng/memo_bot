@@ -1,10 +1,14 @@
-# test_profile_card_storage.py
 """
 Test script to create and store a Profile Card, then view it.
 """
 import os
+import sys
+
+# Add backend directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from profile_card import create_default_profile_card, save_profile_card, get_profile_card
-from view_profile_cards import view_specific_user
+from .view_profile_cards import view_specific_user
 
 # Set the project ID for testing
 os.environ["FIRESTORE_PROJECT"] = "gen-lang-client-0574433212"

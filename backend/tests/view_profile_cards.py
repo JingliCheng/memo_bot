@@ -1,18 +1,32 @@
-# view_profile_cards.py
+#!/usr/bin/env python3
 """
-Simple script to view stored Profile Cards in Firestore.
-Run this to check what Profile Cards are stored.
+Profile Card Viewer - Development and Testing Tool
+
+This script provides utilities for viewing and inspecting Profile Cards stored in Firestore.
+It's primarily used for development, debugging, and testing purposes.
+
+Usage:
+    python tests/view_profile_cards.py
+    python tests/view_profile_cards.py --user test_user_123
+    python tests/view_profile_cards.py --history test_user_123
 """
+
 import os
+import sys
+import argparse
+from typing import Optional
+
+# Add backend directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from google.cloud import firestore
 from profile_card import ProfileCard
-import json
 
 # Initialize Firestore
 _PROJECT = os.getenv("FIRESTORE_PROJECT", "gen-lang-client-0574433212")
 _db = firestore.Client(project=_PROJECT)
 
-def list_all_users():
+def list_all_users() -> None:
     """List all users who have Profile Cards."""
     print("=== All Users with Profile Cards ===")
     
@@ -57,7 +71,7 @@ def list_all_users():
     
     print(f"\nTotal users with Profile Cards: {user_count}")
 
-def view_specific_user(user_id: str):
+def view_specific_user(user_id: str) -> None:
     """View detailed Profile Card for a specific user."""
     print(f"=== Profile Card for User: {user_id} ===")
     
@@ -102,7 +116,7 @@ def view_specific_user(user_id: str):
                                 else:
                                     print(f"    - {item}")
 
-def view_profile_history(user_id: str, limit: int = 5):
+def view_profile_history(user_id: str, limit: int = 5) -> None:
     """View Profile Card version history for a user."""
     print(f"=== Profile History for User: {user_id} ===")
     
@@ -122,19 +136,31 @@ def view_profile_history(user_id: str, limit: int = 5):
         if demographics.get('name', {}).get('value'):
             print(f"Name: {demographics['name']['value']}")
 
-def main():
-    """Main function to run the viewer."""
-    print("Profile Card Viewer")
+def main() -> None:
+    """Main function to run the profile viewer."""
+    parser = argparse.ArgumentParser(description="Profile Card Viewer - Development Tool")
+    parser.add_argument("--user", help="View specific user's profile")
+    parser.add_argument("--history", help="View user's profile history")
+    parser.add_argument("--limit", type=int, default=5, help="Limit for history view")
+    
+    args = parser.parse_args()
+    
+    print("Profile Card Viewer - Development Tool")
     print("=" * 50)
     
     try:
-        # List all users
-        list_all_users()
-        
-        # You can also view specific users by uncommenting these lines:
-        # view_specific_user("test_user_123")
-        # view_specific_user("test_user_456")
-        # view_profile_history("test_user_123", limit=3)
+        if args.user:
+            view_specific_user(args.user)
+        elif args.history:
+            view_profile_history(args.history, args.limit)
+        else:
+            # Default: List all users
+            list_all_users()
+            
+            print("\n" + "=" * 50)
+            print("Usage Examples:")
+            print("  python tests/view_profile_cards.py --user test_user_123")
+            print("  python tests/view_profile_cards.py --history test_user_123 --limit 10")
         
     except Exception as e:
         print(f"Error: {e}")

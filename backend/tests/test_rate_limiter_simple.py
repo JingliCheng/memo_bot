@@ -6,7 +6,7 @@ import sys
 import os
 
 # Add the backend directory to the Python path
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 def test_rate_limiter_import():
     """Test that we can import the rate limiter module."""
@@ -26,8 +26,6 @@ def test_rate_limit_configuration():
         # Test known endpoints
         assert get_rate_limit_for_endpoint("/api/chat") == "10/minute"
         assert get_rate_limit_for_endpoint("/api/memory") == "30/minute"
-        # Test endpoint is only available in test environment
-        # assert get_rate_limit_for_endpoint("/test-rate-limit") == "5/minute"
         
         print("✅ Rate limit configuration is correct")
         return True

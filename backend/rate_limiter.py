@@ -1,10 +1,17 @@
-# rate_limiter.py
 """
 Rate limiting module for user-based rate limiting.
-Uses slowapi with uid-based keys to prevent one user from affecting others.
+
+This module provides:
+- User-based rate limiting with slowapi
+- Redis backend support with in-memory fallback
+- Per-endpoint rate limit configuration
+- Custom error handling and metrics
+- UID+IP based keys for user isolation
 """
+
 import os
 from typing import Optional
+
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -13,20 +20,20 @@ from fastapi.responses import JSONResponse
 import redis
 from dotenv import load_dotenv
 
-load_dotenv()
-
-# Import monitoring
 from monitoring import metrics
+
+load_dotenv()
 
 # Rate limit configuration per endpoint
 RATE_LIMITS = {
     "/api/chat": "10/minute",           # Chat is most expensive (OpenAI calls)
-    "/api/memory": "30/minute",          # Memory operations are lighter
-    "/api/messages": "30/minute",        # Message retrieval is lightweight
-    "/api/profile-card": "20/minute",    # Profile Card operations
+    "/api/memory": "30/minute",         # Memory operations are lighter
+    "/api/messages": "30/minute",       # Message retrieval is lightweight
+    "/api/profile-card": "20/minute",   # Profile Card operations
     "/api/profile-card/history": "10/minute",  # Profile history is heavier
     "/api/profile-card/stats": "20/minute",    # Profile stats
-    "/whoami": "60/minute",              # Auth check is very lightweight
+    "/whoami": "60/minute",             # Auth check is very lightweight
+    "/test-rate-limit": "5/minute",     # Test endpoint with low limit for testing
 }
 
 # Default rate limit for unlisted endpoints
@@ -35,7 +42,14 @@ DEFAULT_RATE_LIMIT = "30/minute"
 def get_user_identifier(request: Request) -> str:
     """
     Create a rate limiting key based on user UID and IP.
+    
     This prevents one user from affecting others behind the same NAT.
+    
+    Args:
+        request: FastAPI request object
+        
+    Returns:
+        str: Unique identifier for rate limiting
     """
     # Try to get UID from the request (set by auth middleware)
     uid = getattr(request.state, 'uid', None)
@@ -50,7 +64,11 @@ def get_user_identifier(request: Request) -> str:
 def create_limiter() -> Limiter:
     """
     Create and configure the rate limiter.
+    
     Uses Redis if available, otherwise falls back to in-memory storage.
+    
+    Returns:
+        Limiter: Configured rate limiter instance
     """
     # Try to connect to Redis (optional)
     redis_url = os.getenv("REDIS_URL")
@@ -74,13 +92,21 @@ def create_limiter() -> Limiter:
         default_limits=[DEFAULT_RATE_LIMIT]
     )
 
-# Create the global limiter instance
+# Global limiter instance
 limiter = create_limiter()
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """
     Custom handler for rate limit exceeded errors.
-    Provides helpful information about the rate limit.
+    
+    Provides helpful information about the rate limit and records metrics.
+    
+    Args:
+        request: FastAPI request object
+        exc: Rate limit exceeded exception
+        
+    Returns:
+        JSONResponse: Error response with retry information
     """
     # Extract retry_after from the exception if available
     retry_after = getattr(exc, 'retry_after', None)
@@ -118,14 +144,27 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
 def get_rate_limit_for_endpoint(endpoint: str) -> str:
     """
     Get the rate limit string for a specific endpoint.
-    Returns the configured limit or default.
+    
+    Args:
+        endpoint: API endpoint path
+        
+    Returns:
+        str: Rate limit string (e.g., "10/minute")
     """
     return RATE_LIMITS.get(endpoint, DEFAULT_RATE_LIMIT)
 
 def apply_rate_limit(endpoint: str):
     """
     Decorator factory for applying rate limits to endpoints.
-    Usage: @apply_rate_limit("/api/chat")
+    
+    Args:
+        endpoint: API endpoint path
+        
+    Returns:
+        Decorator: Rate limiting decorator
+        
+    Usage:
+        @apply_rate_limit("/api/chat")
     """
     limit = get_rate_limit_for_endpoint(endpoint)
     return limiter.limit(limit)

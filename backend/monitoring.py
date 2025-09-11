@@ -1,11 +1,20 @@
 """
 Monitoring module for custom metrics and logging.
+
+This module provides:
+- Google Cloud Monitoring integration
+- Custom metrics for OpenAI API usage
+- Rate limiting metrics
+- Performance tracking
+- Error monitoring
 """
+
 import os
 import time
 import datetime
 import logging
 from typing import Dict, Any, Optional
+
 from google.cloud import monitoring_v3
 from google.cloud.monitoring_v3.types.metric import metric_pb2
 from google.cloud.monitoring_v3.types import TimeSeries, Point
@@ -19,7 +28,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MemoBotMetrics:
-    """Custom metrics for Memo Bot application."""
+    """Custom metrics for Memo Bot application.
+    
+    Provides integration with Google Cloud Monitoring for:
+    - OpenAI API usage tracking
+    - Rate limiting metrics
+    - Performance monitoring
+    - Error tracking
+    """
     
     def __init__(self):
         self.client = monitoring_v3.MetricServiceClient()
@@ -27,7 +43,12 @@ class MemoBotMetrics:
         self.project_name = f"projects/{self.project_id}"
         
     def create_custom_metric(self, metric_type: str, description: str) -> None:
-        """Create a custom metric descriptor."""
+        """Create a custom metric descriptor.
+        
+        Args:
+            metric_type: Type of metric to create
+            description: Human-readable description
+        """
         try:
             descriptor = metric_pb2.MetricDescriptor(
                 type=f"custom.googleapis.com/memo_bot/{metric_type}",
@@ -58,7 +79,18 @@ class MemoBotMetrics:
                            latency_ms: float,
                            cost_usd: float,
                            success: bool) -> None:
-        """Record OpenAI API metrics."""
+        """Record OpenAI API metrics.
+        
+        Args:
+            user_id: User identifier
+            endpoint: API endpoint used
+            model: OpenAI model used
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+            latency_ms: Response latency in milliseconds
+            cost_usd: Estimated cost in USD
+            success: Whether the API call was successful
+        """
         try:
             # Create time series for each metric
             timestamp = Timestamp()
@@ -103,7 +135,14 @@ class MemoBotMetrics:
                                 endpoint: str,
                                 rate_limit_hit: bool,
                                 remaining_quota: int) -> None:
-        """Record rate limiting metrics."""
+        """Record rate limiting metrics.
+        
+        Args:
+            user_id: User identifier
+            endpoint: API endpoint
+            rate_limit_hit: Whether rate limit was exceeded
+            remaining_quota: Remaining quota for the user
+        """
         try:
             timestamp = Timestamp()
             timestamp.FromDatetime(datetime.datetime.utcnow())

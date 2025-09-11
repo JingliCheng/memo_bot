@@ -1,6 +1,14 @@
 """
 Structured logging configuration for Memo Bot.
+
+This module provides:
+- JSON structured logging
+- Request correlation IDs
+- User ID tracking
+- Performance metrics logging
+- Exception handling
 """
+
 import json
 import logging
 import sys
@@ -8,10 +16,24 @@ from datetime import datetime
 from typing import Any, Dict
 
 class StructuredFormatter(logging.Formatter):
-    """JSON structured log formatter."""
+    """JSON structured log formatter for production logging.
+    
+    Formats log records as JSON with structured fields for:
+    - Request correlation
+    - User tracking
+    - Performance metrics
+    - Error details
+    """
     
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON."""
+        """Format log record as JSON.
+        
+        Args:
+            record: Log record to format
+            
+        Returns:
+            str: JSON formatted log entry
+        """
         log_entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
@@ -51,7 +73,13 @@ class StructuredFormatter(logging.Formatter):
         return json.dumps(log_entry)
 
 def setup_logging() -> None:
-    """Setup structured logging."""
+    """Setup structured logging for the application.
+    
+    Configures:
+    - JSON formatter for structured logs
+    - Console output handler
+    - Suppressed noisy loggers
+    """
     # Create logger
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -73,7 +101,13 @@ def setup_logging() -> None:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 def log_request(level: str, message: str, **kwargs: Any) -> None:
-    """Log request with structured data."""
+    """Log request with structured data.
+    
+    Args:
+        level: Log level (info, error, warning, etc.)
+        message: Log message
+        **kwargs: Additional structured fields
+    """
     logger = logging.getLogger("memo_bot.request")
     record = logger.makeRecord(
         "memo_bot.request", 

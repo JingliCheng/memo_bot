@@ -1,25 +1,30 @@
-# profile_card.py
 """
 Profile Card management system with MECE structure and confidence tracking.
+
+This module provides a comprehensive user profiling system that:
+- Maintains a MECE (Mutually Exclusive, Collectively Exhaustive) structure
+- Tracks confidence levels for each fact
+- Provides version history and validation
+- Integrates with Firestore for persistence
 """
+
 from __future__ import annotations
 import os
 import time
-import json
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, asdict
 from dotenv import load_dotenv
-
-load_dotenv()
 
 from google.cloud import firestore
 from google.cloud.firestore_v1 import FieldFilter
 
-# ---- Client ----
+load_dotenv()
+
+# Firestore client configuration
 _PROJECT = os.getenv("FIRESTORE_PROJECT")
 _db = firestore.Client(project=_PROJECT)
 
-# ---- Data Structures ----
+# Data structures
 @dataclass
 class FactEntry:
     """Represents a single fact with confidence and count tracking."""
@@ -34,7 +39,7 @@ class FactEntry:
 
 @dataclass
 class ProfileCard:
-    """MECE Profile Card structure."""
+    """MECE Profile Card structure for comprehensive user profiling."""
     id: str
     user_id: str
     version: int
@@ -45,7 +50,7 @@ class ProfileCard:
         if self.metadata is None:
             self.metadata = {}
 
-# ---- Default Profile Card Structure ----
+# Profile card creation and management
 def create_default_profile_card(user_id: str) -> ProfileCard:
     """Create a default empty profile card."""
     return ProfileCard(
@@ -97,7 +102,7 @@ def create_default_profile_card(user_id: str) -> ProfileCard:
         }
     )
 
-# ---- Firestore Operations ----
+# Firestore operations
 def _get_profile_ref(user_id: str):
     """Get Firestore reference for user's profile card."""
     return _db.collection("users").document(user_id).collection("meta").document("profile_card")
@@ -171,7 +176,7 @@ def get_profile_history(user_id: str, limit: int = 10) -> List[ProfileCard]:
         print(f"Error getting profile history for user {user_id}: {e}")
         return []
 
-# ---- Profile Card Operations ----
+# Profile card operations
 def count_total_facts(profile: ProfileCard) -> int:
     """Count total facts in profile card."""
     count = 0
@@ -226,7 +231,7 @@ def calculate_tokens(profile: ProfileCard) -> int:
     # Rough token estimation (1 token ≈ 4 characters)
     return len(text) // 4
 
-# ---- Profile Update Operations ----
+# Profile update operations
 def update_profile_with_confidence(profile: ProfileCard, updates: List[Dict[str, Any]]) -> ProfileCard:
     """Update profile card with confidence tracking."""
     
@@ -296,7 +301,7 @@ def validate_updates(updates: List[Dict[str, Any]], profile: ProfileCard) -> Lis
     
     return validated
 
-# ---- New Information Detection ----
+# Information detection
 def contains_new_information(user_message: str) -> bool:
     """Quick check if conversation might contain new information."""
     
@@ -315,4 +320,5 @@ def contains_new_information(user_message: str) -> bool:
     
     return False
 
+# Version information
 VERSION_TAG = "profile_card v1.0 MECE"

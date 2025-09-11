@@ -158,3 +158,24 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
+
+
+
+# Deploy
+cd backend
+gcloud run deploy ai-companion-backend \
+  --source . \
+  --region us-central1 \
+  --platform managed \
+  --allow-unauthenticated
+
+
+# local backend
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000
+# Or with reload(doesn't work sometimes)
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# local frontend
+cd web
+npm run dev

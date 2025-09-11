@@ -70,7 +70,7 @@ def mock_firestore():
 @pytest.fixture
 def mock_openai():
     """Mock OpenAI API for testing."""
-    with patch('main._client') as mock_client:
+    with patch('llm_integration._client') as mock_client:
         # Mock streaming response
         mock_response = Mock()
         mock_response.choices = [Mock()]
@@ -92,9 +92,18 @@ def auth_headers():
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset rate limiter state before each test."""
-    # For now, we'll skip the reset since MemoryStorage.clear() has different signature
-    # Each test will start with a clean slate due to the way slowapi works
+    # Clear the rate limiter storage before each test
+    try:
+        limiter.storage.clear()
+    except Exception:
+        # If clear() doesn't work, try to reset the storage
+        pass
     yield
+    # Also clear after each test
+    try:
+        limiter.storage.clear()
+    except Exception:
+        pass
 
 
 @pytest.fixture

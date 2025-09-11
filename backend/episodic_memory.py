@@ -1,13 +1,21 @@
 """
-Episodic Memory System using Chroma Cloud for vector storage and retrieval.
-Stores conversation rounds as episodes with embeddings for semantic search.
+Episodic Memory System using ChromaDB for vector storage and retrieval.
+
+This module provides:
+- Vector-based conversation storage using ChromaDB
+- OpenAI embeddings for semantic search
+- Episode management with metadata
+- Session and round tracking
+- Similarity-based retrieval
 """
+
 from __future__ import annotations
 import os
 import uuid
 import time
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
+
 import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
@@ -15,7 +23,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-# ---- Configuration ----
+# Configuration
 CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
 CHROMA_TENANT = os.getenv("CHROMA_TENANT") 
 CHROMA_DATABASE = os.getenv("CHROMA_DATABASE")
@@ -24,7 +32,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Chroma deployment mode: "local" or "cloud"
 CHROMA_MODE = os.getenv("CHROMA_MODE", "local").lower()
 
-# Initialize OpenAI client for embeddings
+# OpenAI client for embeddings
 if OPENAI_API_KEY:
     _openai_client = OpenAI(api_key=OPENAI_API_KEY)
     _use_openai = True
@@ -32,7 +40,7 @@ else:
     _openai_client = None
     _use_openai = False
 
-# ---- Chroma Client Setup ----
+# ChromaDB client setup
 def get_chroma_client():
     """Initialize and return Chroma client (local or cloud based on CHROMA_MODE)."""
     
@@ -44,8 +52,8 @@ def get_chroma_client():
             )
         
         print("Using Chroma Cloud")
-        return chromadb.Client(
-            chroma_cloud_api_key=CHROMA_API_KEY,
+        return chromadb.CloudClient(
+            api_key=CHROMA_API_KEY,
             tenant=CHROMA_TENANT,
             database=CHROMA_DATABASE,
         )
@@ -73,7 +81,7 @@ def get_episodic_collection():
     
     return collection
 
-# ---- Embedding Functions ----
+# Embedding functions
 def get_embedding(text: str) -> List[float]:
     """Get embedding for text using OpenAI's text-embedding-3-small model."""
     if not _use_openai:
@@ -108,7 +116,7 @@ def create_episode_embeddings(user_message: str, ai_response: str) -> Dict[str, 
         "combined_embedding": combined_embedding
     }
 
-# ---- Episode Data Model ----
+# Episode data model
 class Episode:
     """Represents a single conversation round as an episode."""
     
@@ -147,7 +155,7 @@ class Episode:
             "combined_embedding": self.combined_embedding
         }
 
-# ---- Episode Storage ----
+# Episode storage and retrieval
 class EpisodicMemory:
     """Manages episodic memory storage and retrieval using Chroma Cloud."""
     
@@ -260,7 +268,7 @@ class EpisodicMemory:
             print(f"Error getting episode count: {e}")
             return 0
 
-# ---- Convenience Functions ----
+# Convenience functions
 def create_episode(user_id: str, user_message: str, ai_response: str, 
                   round_number: int, session_id: str) -> Episode:
     """Create a new episode from conversation round."""
@@ -289,7 +297,7 @@ def get_user_recent_episodes(user_id: str, limit: int = 10) -> List[Dict[str, An
     memory = EpisodicMemory()
     return memory.get_recent_episodes(user_id, limit)
 
-# ---- Test Functions ----
+# Test functions
 def test_episodic_memory():
     """Test the episodic memory system."""
     print("Testing Episodic Memory System...")

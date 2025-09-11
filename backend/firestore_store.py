@@ -1,19 +1,30 @@
-# firestore_store.py
+"""
+Firestore storage operations for Memo Bot.
+
+This module provides:
+- Memory/fact storage with confidence and salience scoring
+- Message logging and retrieval
+- Profile data persistence
+- Non-transactional operations for MVP
+"""
+
 from __future__ import annotations
-import os, time, re
+import os
+import time
+import re
 from typing import List, Dict, Any, Optional
+
 from dotenv import load_dotenv
-
-load_dotenv()
-
 from google.cloud import firestore
 from google.cloud.firestore_v1 import FieldFilter
 
-# ---- Client ----
+load_dotenv()
+
+# Firestore client configuration
 _PROJECT = os.getenv("FIRESTORE_PROJECT")
 _db = firestore.Client(project=_PROJECT)
 
-# ---- Helpers ----
+# Helper functions
 def _user_refs(uid: str):
     user = _db.collection("users").document(uid)
     return {
@@ -24,15 +35,18 @@ def _user_refs(uid: str):
     }
 
 _slug_rx = re.compile(r"[^a-z0-9]+")
+
 def _slug(s: str) -> str:
+    """Convert string to URL-safe slug."""
     return _slug_rx.sub("-", s.lower()).strip("-")
 
 def _now() -> float:
+    """Get current timestamp."""
     return float(time.time())
 
-VERSION_TAG = "firestore_store v0.2 NON-TRANSACTIONAL"  # <- visible in logs
+VERSION_TAG = "firestore_store v0.2 NON-TRANSACTIONAL"
 
-# ---- Public API ----
+# Public API functions
 def add_memory(uid: str, item: Dict[str, Any]) -> Dict[str, Any]:
     """Non-transactional upsert (MVP)."""
     refs = _user_refs(uid)

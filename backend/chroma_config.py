@@ -1,15 +1,20 @@
-#!/usr/bin/env python3
 """
 Chroma Configuration Helper
-Shows current configuration and helps switch between local and cloud modes.
+
+This module provides:
+- Configuration display and validation
+- Mode switching utilities
+- Environment variable checking
+- Database status reporting
 """
+
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-def show_current_config():
-    """Display current Chroma configuration."""
+def show_current_config() -> None:
+    """Display current Chroma configuration and status."""
     print("=== Current Chroma Configuration ===")
     
     chroma_mode = os.getenv("CHROMA_MODE", "local").lower()
@@ -34,13 +39,13 @@ def show_current_config():
         else:
             print("  Local database: ✗ Not created yet")
 
-def switch_to_local():
+def switch_to_local() -> None:
     """Switch to local Chroma mode."""
     print("Switching to LOCAL Chroma mode...")
     print("Set CHROMA_MODE=local in your .env file")
     print("No additional environment variables needed for local mode.")
 
-def switch_to_cloud():
+def switch_to_cloud() -> None:
     """Switch to Chroma Cloud mode."""
     print("Switching to CHROMA CLOUD mode...")
     print("Set the following in your .env file:")
